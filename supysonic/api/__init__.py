@@ -178,6 +178,20 @@ class ResponseHelper:
 
 def get_entity(req, ent, param = 'id'):
 	eid = req.values.get(param)
+	return get_entity_item(req, ent, param, eid)
+
+def get_entity_list(req, ent, param = 'id'):
+	eids = req.values.getlist(param)
+	list_success = False
+	entity_list = []
+	for eid in eids:
+		success, entity = get_entity_item(req, ent, param, eid)
+		list_success |= success
+		if success:
+			entity_list.append(entity)
+	return list_success, entity_list
+
+def get_entity_item(req, ent, param, eid):
 	if not eid:
 		return False, req.error_formatter(10, 'Missing %s id' % ent.__name__)
 
@@ -201,4 +215,3 @@ from .annotation import *
 from .chat import *
 from .search import *
 from .playlists import *
-

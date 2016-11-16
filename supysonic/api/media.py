@@ -29,7 +29,10 @@ from xml.etree import ElementTree
 from supysonic import config, scanner
 from supysonic.web import app, store
 from supysonic.db import Track, Album, Artist, Folder, User, ClientPrefs, now
-from . import get_entity
+from . import get_entity, get_entity_list
+import mplayer
+
+mplayer_player = None
 
 def prepare_transcoding_cmdline(base_cmdline, input_file, input_format, output_format, output_bitrate):
 	if not base_cmdline:
@@ -38,6 +41,12 @@ def prepare_transcoding_cmdline(base_cmdline, input_file, input_format, output_f
 	for i in xrange(len(ret)):
 		ret[i] = ret[i].replace('%srcpath', input_file).replace('%srcfmt', input_format).replace('%outfmt', output_format).replace('%outrate', str(output_bitrate))
 	return ret
+
+def get_mplayer():
+	global mplayer_player
+	if not mplayer_player:
+		mplayer_player = mplayer.Player()
+	return mplayer_player
 
 @app.route('/rest/stream.view', methods = [ 'GET', 'POST' ])
 def stream_media():
@@ -208,13 +217,30 @@ def lyrics():
 
 @app.route('/rest/jukeboxControl.view', methods = [ 'GET', 'POST' ])
 def jukebox():
-	status, res = get_entity(request, Track)
-	if status:
-		print res.path
-	else:
-		return res
+	player = get_mplayer()
 	action, index, offset, song_id, gain = map(request.values.get, [ 'action', 'index', 'offset', 'id', 'gain' ])
-	print action, index, offset, song_id, gain
+	#print action, index, offset, song_id, gain
+
+	status, res = get_entity_list(request, Track)
+
+	if status:
+		music_files = [ music_file.path for music_file in res ]
+
+	if action == 'set':
+		for music_file in music_files:
+			player.loadfile(music_file)
+
+	if action == 'start':
+		if player.paused:
+			player.pause()
+
+	if action == 'stop':
+		if not player.paused:
+			player.pause()
+
+	if action == 'status':
+		pass
+		#print 'paused', player.paused
 
 	'''
 	 TODO:
@@ -242,4 +268,3 @@ def read_file_as_unicode(path):
 	# Fallback to ASCII
 	app.logger.debug('Reading file {} with ascii encoding'.format(path))
 	return unicode(open(path, 'r').read())
-
