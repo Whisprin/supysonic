@@ -241,6 +241,8 @@ class User(object):
 	admin = Bool(default = False)
 	lastfm_session = Unicode() # nullable
 	lastfm_status = Bool(default = True) # True: ok/unlinked, False: invalid session
+	# TODO: default to False and allow edits + store in db
+	jukebox = Bool(default = True)
 
 	last_play_id = UUID() # nullable
 	last_play = Reference(last_play_id, Track.id)
@@ -260,7 +262,7 @@ class User(object):
 			'commentRole': False,
 			'podcastRole': False,
 			'streamRole': True,
-			'jukeboxRole': False,
+			'jukeboxRole': self.jukebox,
 			'shareRole': False
 		}
 

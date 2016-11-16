@@ -206,6 +206,25 @@ def lyrics():
 
 	return request.formatter({ 'lyrics': {} })
 
+@app.route('/rest/jukeboxControl.view', methods = [ 'GET', 'POST' ])
+def jukebox():
+	status, res = get_entity(request, Track)
+	if status:
+		print res.path
+	else:
+		return res
+	action, index, offset, song_id, gain = map(request.values.get, [ 'action', 'index', 'offset', 'id', 'gain' ])
+	print action, index, offset, song_id, gain
+
+	'''
+	 TODO:
+	 set - spawn player with empty playlist, add song to playlist
+	 start - start playing the song
+	 stop - stop playing
+	'''
+
+	return request.formatter({ 'jukeboxStatus': {} })
+
 def read_file_as_unicode(path):
 	""" Opens a file trying with different encodings and returns the contents as a unicode string """
 
