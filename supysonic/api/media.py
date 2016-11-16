@@ -33,6 +33,7 @@ from . import get_entity, get_entity_list
 import mplayer
 
 mplayer_player = None
+jukebox_playlist = []
 
 def prepare_transcoding_cmdline(base_cmdline, input_file, input_format, output_format, output_bitrate):
 	if not base_cmdline:
@@ -47,6 +48,14 @@ def get_mplayer():
 	if not mplayer_player:
 		mplayer_player = mplayer.Player()
 	return mplayer_player
+
+def set_jukebox_playlist(playlist):
+	global jukebox_playlist
+	jukebox_playlist = playlist
+
+def get_jukebox_playlist():
+	global jukebox_playlist
+	return jukebox_playlist
 
 @app.route('/rest/stream.view', methods = [ 'GET', 'POST' ])
 def stream_media():
@@ -219,16 +228,19 @@ def lyrics():
 def jukebox():
 	player = get_mplayer()
 	action, index, offset, song_id, gain = map(request.values.get, [ 'action', 'index', 'offset', 'id', 'gain' ])
-	#print action, index, offset, song_id, gain
+	if index:
+		index = int(index)
+	if offset:
+		offset = int(offset)
 
 	status, res = get_entity_list(request, Track)
 
 	if status:
 		music_files = [ music_file.path for music_file in res ]
+		set_jukebox_playlist(music_files)
 
 	if action == 'set':
-		for music_file in music_files:
-			player.loadfile(music_file)
+		player.loadfile(get_jukebox_playlist()[0])
 
 	if action == 'start':
 		if player.paused:
@@ -239,15 +251,11 @@ def jukebox():
 			player.pause()
 
 	if action == 'status':
-		pass
-		#print 'paused', player.paused
+		print 'paused', player.paused, 'filename', player.filename
 
-	'''
-	 TODO:
-	 set - spawn player with empty playlist, add song to playlist
-	 start - start playing the song
-	 stop - stop playing
-	'''
+	if action == 'skip':
+		player.loadfile(get_jukebox_playlist()[index])
+		player.seek(offset)
 
 	return request.formatter({ 'jukeboxStatus': {} })
 
