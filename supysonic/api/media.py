@@ -30,10 +30,73 @@ from supysonic import config, scanner
 from supysonic.web import app, store
 from supysonic.db import Track, Album, Artist, Folder, User, ClientPrefs, now
 from . import get_entity, get_entity_list
-import mplayer
+import musicplayer
 
-mplayer_player = None
-jukebox_playlist = []
+jukebox_player = None
+
+class Song:
+    def __init__(self, fn):
+        self.url = fn
+        self.f = open(fn)
+    # `__eq__` is used for the peek stream management
+    def __eq__(self, other):
+        return self.url == other.url
+    # this is used by the player as the data interface
+    def readPacket(self, bufSize):
+        return self.f.read(bufSize)
+    def seekRaw(self, offset, whence):
+        r = self.f.seek(offset, whence)
+        return self.f.tell()
+
+i = 0
+files = []
+
+def set_jukebox_playlist(songs):
+	global files
+	files = songs
+
+def songs():
+    global i, files
+    while True:
+        yield Song(files[i])
+        i += 1
+        if i >= len(files): i = 0
+
+def get_musicplayer():
+	global jukebox_player
+	if not jukebox_player:
+		player = musicplayer.createPlayer()
+		player.outSamplerate = 48000
+		player.volume = 1
+		jukebox_player = player
+	return jukebox_player
+
+def skip_to_playlist_item(index):
+	global i, jukebox_player
+	if not i == index:
+		i = index-1
+		jukebox_player.nextSong()
+
+def get_jukebox_status():
+	global i
+	player = get_musicplayer()
+	if player.curSongPos:
+		position = int(player.curSongPos)
+	else:
+		position = 0
+	status = {
+		'currentIndex': i,
+		'playing': player.playing,
+		'gain': player.volume,
+		'position': position
+	}
+	return status
+
+def get_future_jukebox_status(index, position):
+	status = get_jukebox_status()
+	status['currentIndex'] = index
+	status['position'] = position
+	return status
 
 def prepare_transcoding_cmdline(base_cmdline, input_file, input_format, output_format, output_bitrate):
 	if not base_cmdline:
@@ -42,20 +105,6 @@ def prepare_transcoding_cmdline(base_cmdline, input_file, input_format, output_f
 	for i in xrange(len(ret)):
 		ret[i] = ret[i].replace('%srcpath', input_file).replace('%srcfmt', input_format).replace('%outfmt', output_format).replace('%outrate', str(output_bitrate))
 	return ret
-
-def get_mplayer():
-	global mplayer_player
-	if not mplayer_player:
-		mplayer_player = mplayer.Player()
-	return mplayer_player
-
-def set_jukebox_playlist(playlist):
-	global jukebox_playlist
-	jukebox_playlist = playlist
-
-def get_jukebox_playlist():
-	global jukebox_playlist
-	return jukebox_playlist
 
 @app.route('/rest/stream.view', methods = [ 'GET', 'POST' ])
 def stream_media():
@@ -226,38 +275,48 @@ def lyrics():
 
 @app.route('/rest/jukeboxControl.view', methods = [ 'GET', 'POST' ])
 def jukebox():
-	player = get_mplayer()
+	player = get_musicplayer()
 	action, index, offset, song_id, gain = map(request.values.get, [ 'action', 'index', 'offset', 'id', 'gain' ])
 	if index:
 		index = int(index)
+	else:
+		index = 0
 	if offset:
 		offset = int(offset)
+	else:
+		offset = 0
+	if gain:
+		gain = float(gain)
+	else:
+		gain = 0.0
 
 	status, res = get_entity_list(request, Track)
 
 	if status:
 		music_files = [ music_file.path for music_file in res ]
 		set_jukebox_playlist(music_files)
-
-	if action == 'set':
-		player.loadfile(get_jukebox_playlist()[0])
+		player.queue = songs()
+		player.playing = True
 
 	if action == 'start':
-		if player.paused:
-			player.pause()
+		player.playing = True
 
 	if action == 'stop':
-		if not player.paused:
-			player.pause()
+		player.playing = False
 
 	if action == 'status':
-		print 'paused', player.paused, 'filename', player.filename
+		# We're returing the current status anyway
+		pass
+
+	if action == 'setGain':
+		player.volume = gain
 
 	if action == 'skip':
-		player.loadfile(get_jukebox_playlist()[index])
-		player.seek(offset)
+		skip_to_playlist_item(index)
+		player.seekAbs(offset)
+		return request.formatter({ 'jukeboxStatus': get_future_jukebox_status(index = index, position = offset) })
 
-	return request.formatter({ 'jukeboxStatus': {} })
+	return request.formatter({ 'jukeboxStatus': get_jukebox_status() })
 
 def read_file_as_unicode(path):
 	""" Opens a file trying with different encodings and returns the contents as a unicode string """
