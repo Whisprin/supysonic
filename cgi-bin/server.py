@@ -25,5 +25,6 @@ app = create_application()
 if __name__ == '__main__':
 	if app:
 		import sys
-		app.run(host = sys.argv[1] if len(sys.argv) > 1 else None, port = int(sys.argv[2]) if len(sys.argv) > 2 else 5000, debug = True)
-
+		from gevent.pywsgi import WSGIServer
+		http_server = WSGIServer((sys.argv[1] if len(sys.argv) > 1 else 'localhost', int(sys.argv[2]) if len(sys.argv) > 2 else 5000), app)
+		http_server.serve_forever()

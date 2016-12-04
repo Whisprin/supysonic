@@ -5,3 +5,5 @@ simplejson
 requests>=1.0.0
 mutagen
 watchdog
+mpv
+gevent
