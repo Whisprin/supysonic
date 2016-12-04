@@ -48,6 +48,7 @@ CREATE TABLE user (
 	password CHAR(40) NOT NULL,
 	salt CHAR(6) NOT NULL,
 	admin BOOLEAN NOT NULL,
+	jukebox BOOLEAN NOT NULL,
 	lastfm_session CHAR(32),
 	lastfm_status BOOLEAN NOT NULL,
 	last_play_id CHAR(36) REFERENCES track,
@@ -125,4 +126,3 @@ CREATE TABLE playlist_track (
 	track_id CHAR(36) NOT NULL REFERENCES track,
 	PRIMARY KEY(playlist_id, track_id)
 ) DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;
-

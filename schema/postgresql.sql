@@ -48,6 +48,7 @@ CREATE TABLE "user" (
 	password CHAR(40) NOT NULL,
 	salt CHAR(6) NOT NULL,
 	admin BOOLEAN NOT NULL,
+	jukebox BOOLEAN NOT NULL,
 	lastfm_session CHAR(32),
 	lastfm_status BOOLEAN NOT NULL,
 	last_play_id UUID REFERENCES track,
@@ -125,4 +126,3 @@ CREATE TABLE playlist_track (
 	track_id UUID NOT NULL REFERENCES track,
 	PRIMARY KEY(playlist_id, track_id)
 );
-
